@@ -5,6 +5,6 @@ There are two steps:
 cd escape
 ESCAPE_ROOT=$(pwd)
 sudo docker build -t escape_env .
-  B. Build Kernel 
+  B. Build Kernel (Linux 6.18.52)
   C. Build QEMU
 2. Then, quit docker, run QEMU:
