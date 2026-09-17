@@ -1,0 +1,4 @@
+.DS_Store
+*.img
+*.qcow2
+*.raw
