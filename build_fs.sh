@@ -104,7 +104,7 @@ fi
 apt-get update
 apt-get install -y passwd apt net-tools cxl
 
-echo "root:stramash" | chpasswd
+echo "root:escape" | chpasswd
 EOF
   cd -
 
