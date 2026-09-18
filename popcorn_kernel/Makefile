@@ -567,7 +567,7 @@ CFLAGS_MODULE   =
 RUSTFLAGS_MODULE =
 AFLAGS_MODULE   =
 LDFLAGS_MODULE  =
-CFLAGS_KERNEL	=
+CFLAGS_KERNEL	= -g
 RUSTFLAGS_KERNEL =
 AFLAGS_KERNEL	=
 LDFLAGS_vmlinux =
@@ -872,12 +872,18 @@ endif # need-config
 
 KBUILD_CFLAGS	+= -fno-delete-null-pointer-checks
 
+# Popcorn related config (Xin, Sep 18, 2026)
+ifdef CONFIG_CC_OPTIMIZE_FOR_DEBUGGING
+KBUILD_CFLAGS	+= -Og
+KBUILD_CFLAGS	+= $(call cc-disable-warning,maybe-uninitialized,)
+else
 ifdef CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE
 KBUILD_CFLAGS += -O2
 KBUILD_RUSTFLAGS += -Copt-level=2
 else ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS += -Os
 KBUILD_RUSTFLAGS += -Copt-level=s
+endif
 endif
 
 # Always set `debug-assertions` and `overflow-checks` because their default
@@ -952,6 +958,13 @@ KBUILD_CFLAGS	+= $(call cc-option, -fno-stack-clash-protection)
 # Clear used registers at func exit (to reduce data lifetime and ROP gadgets).
 ifdef CONFIG_ZERO_CALL_USED_REGS
 KBUILD_CFLAGS	+= -fzero-call-used-regs=used-gpr
+endif
+
+# Popcorn related config (Xin, Sep 18, 2026)
+ifdef CONFIG_NO_AUTO_INLINE
+KBUILD_CFLAGS   += $(call cc-option, -fno-inline-functions) \
+		   $(call cc-option, -fno-inline-small-functions) \
+		   $(call cc-option, -fno-inline-functions-called-once)
 endif
 
 ifdef CONFIG_FUNCTION_TRACER

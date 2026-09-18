@@ -1,0 +1,11 @@
+menu "Popcorn Distributed Execution Support"
+
+# This is selected by all the architectures Popcorn supports
+config ARCH_SUPPORTS_POPCORN
+	bool
+
+config POPCORN
+    bool "Popcorn Linux"
+    default y
+
+endmenu
