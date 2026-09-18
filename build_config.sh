@@ -3,35 +3,51 @@
 set -e
 
 KERNEL=./popcorn_kernel
+JOBS=16
 
 echo "========================================"
 echo "Building Popcorn Kernel"
 echo "========================================"
 
-# 1. Clean previous build
 echo "[1/5] Cleaning..."
 make -C "$KERNEL" clean
 
-# 2. Generate x86_64 default configuration
 echo "[2/5] Generating x86_64 defconfig..."
 make -C "$KERNEL" x86_64_defconfig
 
-# 3. Enable Popcorn
 echo "[3/5] Enabling Popcorn..."
-sudo "$KERNEL/scripts/config" --enable POPCORN
+"$KERNEL/scripts/config" --enable POPCORN
 
-# 4. Enable CXL
 echo "[4/5] Enabling CXL..."
-sudo "$KERNEL/scripts/config" --enable CXL_BUS
-sudo "$KERNEL/scripts/config" --enable CXL_PCI
-sudo "$KERNEL/scripts/config" --enable CXL_ACPI
-sudo "$KERNEL/scripts/config" --enable CXL_MEM
-sudo "$KERNEL/scripts/config" --enable CXL_PORT
-sudo "$KERNEL/scripts/config" --enable CXL_REGION
+"$KERNEL/scripts/config" --enable CXL_BUS
+"$KERNEL/scripts/config" --enable CXL_PCI
+"$KERNEL/scripts/config" --enable CXL_ACPI
+"$KERNEL/scripts/config" --enable CXL_MEM
+"$KERNEL/scripts/config" --enable CXL_PORT
+"$KERNEL/scripts/config" --enable CXL_REGION
 
-# Update configuration
+echo
+echo "Configuration before olddefconfig:"
+grep -E '^CONFIG_(POPCORN|CXL_)' "$KERNEL/.config" || true
+
+echo
+echo "Running olddefconfig..."
 make -C "$KERNEL" olddefconfig
 
 echo
-echo "Kernel configuration:"
-grep -E '^CONFIG_(POPCORN|CXL_)' "$KERNEL/.config"
+echo "Final kernel configuration:"
+grep -E '^CONFIG_(POPCORN|CXL_)' "$KERNEL/.config" || true
+
+echo
+echo "[5/5] Building kernel..."
+make -C "$KERNEL" -j"$JOBS"
+
+echo
+echo "Copying kernel image..."
+cp "$KERNEL/arch/x86/boot/bzImage" ./bzImage
+
+echo
+echo "========================================"
+echo "Build completed!"
+echo "Kernel: ./bzImage"
+echo "========================================"
