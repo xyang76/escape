@@ -55,4 +55,3 @@ echo "$KERNEL/arch/x86/boot/bzImage"
 echo "========================================"
 
 cp "$KERNEL/arch/x86/boot/bzImage" bzImage
-```
