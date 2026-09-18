@@ -18,7 +18,7 @@ echo "[2/5] Generating x86_64 defconfig..."
 make -C "$KERNEL" x86_64_defconfig
 
 # Enter kernel directory
-pushd "$KERNEL" > /dev/null
+cd "$KERNEL"
 
 # 3. Enable Popcorn
 echo "[3/5] Enabling Popcorn..."
@@ -46,7 +46,7 @@ echo "[5/5] Building kernel..."
 make -j16
 
 # Return to project root
-popd > /dev/null
+cd ..
 
 echo
 echo "========================================"
