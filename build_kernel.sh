@@ -18,16 +18,16 @@ make -C "$KERNEL" x86_64_defconfig
 
 # 3. Enable Popcorn
 echo "[3/5] Enabling Popcorn..."
-"$KERNEL/scripts/config" --enable POPCORN
+sudo "$KERNEL/scripts/config" --enable POPCORN
 
 # 4. Enable CXL
 echo "[4/5] Enabling CXL..."
-"$KERNEL/scripts/config" --enable CXL_BUS
-"$KERNEL/scripts/config" --enable CXL_PCI
-"$KERNEL/scripts/config" --enable CXL_ACPI
-"$KERNEL/scripts/config" --enable CXL_MEM
-"$KERNEL/scripts/config" --enable CXL_PORT
-"$KERNEL/scripts/config" --enable CXL_REGION
+sudo "$KERNEL/scripts/config" --enable CXL_BUS
+sudo "$KERNEL/scripts/config" --enable CXL_PCI
+sudo "$KERNEL/scripts/config" --enable CXL_ACPI
+sudo "$KERNEL/scripts/config" --enable CXL_MEM
+sudo "$KERNEL/scripts/config" --enable CXL_PORT
+sudo "$KERNEL/scripts/config" --enable CXL_REGION
 
 # Update configuration
 make -C "$KERNEL" olddefconfig
