@@ -1,7 +1,4 @@
 #!/bin/bash
-
-set -e
-
 KERNEL=./popcorn_kernel
 
 echo "========================================"
