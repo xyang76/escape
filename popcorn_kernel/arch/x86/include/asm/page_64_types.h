@@ -47,11 +47,24 @@
 
 /* See Documentation/arch/x86/x86_64/mm.rst for a description of the memory map. */
 
+#ifdef CONFIG_POPCORN
+/*
+ * Popcorn seems used the virtual address space to 38 bits
+ * From 5.2 -> 6.18 I updated default_map_window 
+ * Modified: Xin OCT 4,2026.
+ */
+#define __PHYSICAL_MASK_SHIFT	52
+#define __VIRTUAL_MASK_SHIFT	(pgtable_l5_enabled() ? 56 : 38)
+#define TASK_SIZE_MAX		task_size_max()
+#define DEFAULT_MAP_WINDOW	((1UL << 38) - PAGE_SIZE)
+#else
+
 #define __PHYSICAL_MASK_SHIFT	52
 #define __VIRTUAL_MASK_SHIFT	(pgtable_l5_enabled() ? 56 : 47)
 
 #define TASK_SIZE_MAX		task_size_max()
 #define DEFAULT_MAP_WINDOW	((1UL << 47) - PAGE_SIZE)
+#endif
 
 /* This decides where the kernel will search for a free chunk of vm
  * space during mmap's.

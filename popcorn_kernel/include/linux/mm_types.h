@@ -24,6 +24,10 @@
 
 #include <asm/mmu.h>
 
+#ifdef CONFIG_POPCORN
+struct remote_context;
+#endif
+
 #ifndef AT_VECTOR_SIZE_ARCH
 #define AT_VECTOR_SIZE_ARCH 0
 #endif
@@ -1189,6 +1193,10 @@ struct mm_struct {
 		atomic_long_t hugetlb_usage;
 #endif
 		struct work_struct async_put_work;
+        
+#ifdef CONFIG_POPCORN
+        struct remote_context *remote;
+#endif
 
 #ifdef CONFIG_IOMMU_MM_DATA
 		struct iommu_mm_data *iommu_mm;
@@ -1544,6 +1552,10 @@ enum vm_fault_reason {
 	VM_FAULT_NEEDDSYNC      = (__force vm_fault_t)0x002000,
 	VM_FAULT_COMPLETED      = (__force vm_fault_t)0x004000,
 	VM_FAULT_HINDEX_MASK    = (__force vm_fault_t)0x0f0000,
+#ifdef CONFIG_POPCORN
+    VM_FAULT_CONTINUE       = (__force vm_fault_t)0x004000,
+           VM_FAULT_KILLED         = (__force vm_fault_t)0x008000,
+#endif
 };
 
 /* Encode hstate index for a hwpoisoned large page */

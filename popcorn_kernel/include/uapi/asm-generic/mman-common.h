@@ -81,6 +81,9 @@
 
 #define MADV_GUARD_INSTALL 102		/* fatal signal on access to range */
 #define MADV_GUARD_REMOVE 103		/* unguard range */
+#ifdef CONFIG_POPCORN
+#define MADV_RELEASE 901
+#endif
 
 /* compatibility flags */
 #define MAP_FILE	0

@@ -1,0 +1,2 @@
+obj-$(CONFIG_POPCORN)	+= init.o
+obj-$(CONFIG_POPCORN)	+= pcn_kmsg.o

@@ -980,6 +980,17 @@ asmlinkage long sys_fspick(int dfd, const char __user *path, unsigned int flags)
 asmlinkage long sys_pidfd_send_signal(int pidfd, int sig,
 				       siginfo_t __user *info,
 				       unsigned int flags);
+/* Popcorn Linux syscalls */
+#ifdef CONFIG_POPCORN
+#include <popcorn/bundle.h>
+asmlinkage long sys_popcorn_migrate(int nid, void __user * uregs);
+asmlinkage long sys_popcorn_propose_migration(pid_t pid, int nid);
+asmlinkage long sys_popcorn_get_thread_status(struct popcorn_thread_status __user *
+                          status);
+asmlinkage long sys_popcorn_get_node_info(int * _my_nid,
+                      struct popcorn_node_info __user * info);
+#endif
+
 asmlinkage long sys_pidfd_getfd(int pidfd, int fd, unsigned int flags);
 asmlinkage long sys_landlock_create_ruleset(const struct landlock_ruleset_attr __user *attr,
 		size_t size, __u32 flags);
@@ -1245,6 +1256,15 @@ ssize_t ksys_pread64(unsigned int fd, char __user *buf, size_t count,
 ssize_t ksys_pwrite64(unsigned int fd, const char __user *buf,
 		      size_t count, loff_t pos);
 int ksys_fallocate(int fd, int mode, loff_t offset, loff_t len);
+#ifdef CONFIG_POPCORN
+long ksys_brk(unsigned long brk);
+long ksys_mremap(unsigned long addr,
+         unsigned long old_len, unsigned long new_len,
+         unsigned long flags, unsigned long new_addr);
+long ksys_madvise(unsigned long start, size_t len, int behavior);
+long ksys_mprotect(unsigned long start, size_t len,
+          unsigned long prot);
+#endif
 #ifdef CONFIG_ADVISE_SYSCALLS
 int ksys_fadvise64_64(int fd, loff_t offset, loff_t len, int advice);
 #else

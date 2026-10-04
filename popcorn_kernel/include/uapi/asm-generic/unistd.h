@@ -858,8 +858,17 @@ __SYSCALL(__NR_file_getattr, sys_file_getattr)
 #define __NR_file_setattr 469
 __SYSCALL(__NR_file_setattr, sys_file_setattr)
 
+/* Popcorn Linux */
+#define __NR_popcorn_migrate 900
+__SYSCALL(__NR_popcorn_migrate, sys_popcorn_migrate)
+#define __NR_popcorn_propose_migration 901
+__SYSCALL(__NR_popcorn_propose_migration, sys_popcorn_propose_migration)
+#define __NR_popcorn_get_thread_status 902
+__SYSCALL(__NR_popcorn_get_thread_status, sys_popcorn_get_thread_status)
+#define __NR_popcorn_get_node_info 903
+__SYSCALL(__NR_popcorn_get_node_info, sys_popcorn_get_node_info)
 #undef __NR_syscalls
-#define __NR_syscalls 470
+#define __NR_syscalls 904
 
 /*
  * 32 bit systems traditionally used different
