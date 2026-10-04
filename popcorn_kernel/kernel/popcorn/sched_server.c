@@ -12,6 +12,7 @@
  *
  * @author Vincent Legout, Antonio Barbalace, SSRG Virginia Tech 2016
  * @author Sang-Hoon Kim, SSRG Virginia Tech 2017
+ * @author Xincheng Yang, Illinois Tech 2026
  */
 
 #include <linux/delay.h>
@@ -149,7 +150,9 @@ static void popcorn_ps_load(struct task_struct *t, unsigned int *puload, unsigne
 	delta = now = get_jiffies_64();
 
 	if (!t->llasttimestamp)
-		delta -= nsecs_to_jiffies(t->real_start_time);
+        // Xin Edited: Linux 6 does not have real_start_time
+		// delta -= nsecs_to_jiffies(t->real_start_time);
+        delta -= nsecs_to_jiffies(t->start_time);
 	else
 		delta -= t->llasttimestamp;
 
@@ -296,9 +299,14 @@ static ssize_t popcorn_ps_read(struct file *file, char __user *buf, size_t count
 	return len;
 }
 
-static const struct file_operations popcorn_ps_fops = {
-	.owner = THIS_MODULE,
-	.read = popcorn_ps_read,
+/** Xin: Linux 6 does not use file_operations for proc_create, replaced with proc_ops
+ static const struct file_operations popcorn_ps_fops = {
+     .owner = THIS_MODULE,
+     .read = popcorn_ps_read,
+ };
+ */
+static const struct proc_ops popcorn_ps_fops = {
+    .proc_read = popcorn_ps_read,
 };
 
 DEFINE_KMSG_WQ_HANDLER(remote_ps_request);
