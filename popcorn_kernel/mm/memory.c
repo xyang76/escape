@@ -3469,7 +3469,7 @@ pte_unlock:
 	return ret;
 }
 
-static gfp_t __get_fault_gfp_mask(struct vm_area_struct *vma)
+gfp_t __get_fault_gfp_mask(struct vm_area_struct *vma)
 {
 	struct file *vm_file = vma->vm_file;
 
