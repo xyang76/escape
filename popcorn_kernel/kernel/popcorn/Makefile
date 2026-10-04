@@ -1,7 +1,5 @@
 obj-$(CONFIG_POPCORN)	+= init.o util.o
-obj-$(CONFIG_POPCORN)	+= bundle.o
-obj-$(CONFIG_POPCORN)	+= fh_action.o
-obj-$(CONFIG_POPCORN)	+= stat.o
+obj-$(CONFIG_POPCORN)	+= bundle.o fh_action.o stat.o
 obj-$(CONFIG_POPCORN)	+= pcn_kmsg.o
 #obj-$(CONFIG_POPCORN)	+= page_server.o
 #obj-$(CONFIG_POPCORN)	+= wait_station.o
