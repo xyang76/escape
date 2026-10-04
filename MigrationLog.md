@@ -1,6 +1,6 @@
-# =================================================
+# ===============================================
 # Popcorn Linux 5.2.21 -> Linux 6.18.52 Migration Logs
-# =================================================
+# ===============================================
 
 Status:
 - TODO: Not started
@@ -30,12 +30,13 @@ Status:
     - Description: modified __get_fault_gfp_mask for pass kernel compilation
 
 # 03. Missing Defs: MISMATCH
-popcorn-kernel/arch/x86/include/asm/pgtable-2level.h
-popcorn-kernel/arch/x86/include/asm/pgtable-3level.h
-popcorn-kernel/arch/x86/include/asm/pgtable.h
+* popcorn-kernel/arch/x86/include/asm/pgtable-2level.h
+* popcorn-kernel/arch/x86/include/asm/pgtable-3level.h
+* popcorn-kernel/arch/x86/include/asm/pgtable.h
 
+# 04. Defs Compilation Passed
 ==> OCT 4, 2026 defs compilation passed. [github version: 1ff85d2]
 
-# 04. Popcorn Kernel:  DONE (Oct 4, 2026)
+# 05. Popcorn Kernel:  TODO (Oct 4, 2026)
 TODO: popcorn-kernel/arch/x86/include/asm/pgtable_64.h remove  #include <asm/pgtable-invert.h>
 
