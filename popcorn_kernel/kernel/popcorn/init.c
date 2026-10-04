@@ -44,15 +44,15 @@ static int __init popcorn_init(void)
 
 	pcn_kmsg_init();
 
-	popcorn_nodes_init();
-	vma_server_init();
-	process_server_init();
-	page_server_init();
-	sched_server_init();
+    //popcorn_nodes_init();
+	//vma_server_init();
+    //process_server_init();
+    //page_server_init();
+    //sched_server_init();
 
 	remote_info_init();
-	statistics_init();
-	syscall_server_init();
+    //statistics_init();
+    //syscall_server_init();
 	return 0;
 }
 late_initcall(popcorn_init);

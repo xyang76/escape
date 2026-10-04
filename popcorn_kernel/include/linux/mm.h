@@ -4038,7 +4038,7 @@ static inline void clear_page_guard(struct zone *zone, struct page *page,
 #endif	/* CONFIG_DEBUG_PAGEALLOC */
 
 #ifdef CONFIG_POPCORN
-gfp_t __get_fault_gfp_mask(struct vm_area_struct *vma);
+static gfp_t __get_fault_gfp_mask(struct vm_area_struct *vma);
 #endif
 
 #ifdef __HAVE_ARCH_GATE_AREA
