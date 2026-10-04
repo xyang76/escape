@@ -1,6 +1,6 @@
-# ============================================================
+# =================================================
 # Popcorn Linux 5.2.21 -> Linux 6.18.52 Migration Logs
-# ============================================================
+# =================================================
 
 Status:
 - TODO: Not started
@@ -34,7 +34,7 @@ popcorn-kernel/arch/x86/include/asm/pgtable-2level.h
 popcorn-kernel/arch/x86/include/asm/pgtable-3level.h
 popcorn-kernel/arch/x86/include/asm/pgtable.h
 
-==> OCT 4, 2026 defs compilation passed. [github version: 2e71026]
+==> OCT 4, 2026 defs compilation passed. [github version: 1ff85d2]
 
 # 04. Popcorn Kernel:  DONE (Oct 4, 2026)
 TODO: popcorn-kernel/arch/x86/include/asm/pgtable_64.h remove  #include <asm/pgtable-invert.h>
