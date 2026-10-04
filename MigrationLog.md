@@ -35,7 +35,7 @@ Status:
 * popcorn-kernel/arch/x86/include/asm/pgtable.h
 
 # 04. Defs Compilation Passed
-==> OCT 4, 2026 defs compilation passed. [github version: 1ff85d2]
+==> OCT 4, 2026 defs compilation passed. [github version: 5861cac]
 
 # 05. Popcorn Kernel:  TODO (Oct 4, 2026)
 TODO: popcorn-kernel/arch/x86/include/asm/pgtable_64.h remove  #include <asm/pgtable-invert.h>
