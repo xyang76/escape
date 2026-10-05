@@ -148,13 +148,16 @@ static int __open_stats(struct inode *inode, struct file *file)
 	return single_open(file, __show_stats, inode->i_private);
 }
 
-static struct file_operations stats_ops = {
-	.owner = THIS_MODULE,
-	.open = __open_stats,
-	.read = seq_read,
-	.llseek  = seq_lseek,
-	.release = single_release,
-	.write = __write_stats,
+/**
+ Xin : OCT 4, 2026
+ Modified file_operations to proc_ops (Linux6)
+ */
+static const struct proc_ops stats_ops = {
+    .proc_open = __open_stats,
+    .proc_read = seq_read,
+    .proc_lseek = seq_lseek,
+    .proc_release = single_release,
+    .proc_write = __write_stats,
 };
 
 static struct proc_dir_entry *proc_entry = NULL;
