@@ -18,6 +18,7 @@
 #include <linux/ptrace.h>
 #include <linux/swap.h>
 #include <linux/pagemap.h>
+#include <linux/pagewalk.h>
 #include <linux/delay.h>
 #include <linux/random.h>
 #include <linux/radix-tree.h>
@@ -767,10 +768,19 @@ int page_server_flush_remote_pages(struct remote_context *rc)
 {
 	remote_page_flush_t *req = kmalloc(sizeof(*req), GFP_KERNEL);
 	struct mm_struct *mm = rc->mm;
+	/* Xin: Linux 6 use mm_walk_ops instead
 	struct mm_walk walk = {
 		.pte_entry = __do_pte_flush,
 		.mm = mm,
 		.private = req,
+	};
+	*/
+	struct mm_walk walk = {
+		.mm = mm,
+		.private = req,
+	};
+	struct mm_walk_ops walk_ops = {
+		.pte_entry = __do_pte_flush,
 	};
 	struct vm_area_struct *vma;
 	struct wait_station *ws = get_wait_station(current);
@@ -794,13 +804,21 @@ int page_server_flush_remote_pages(struct remote_context *rc)
 	/* Send pages asynchronously */
 	ws = get_wait_station(current);
 	
-	//Xin: replace down_read(&mm->mmap_sem);
-	mmap_read_lock(mm);
-	for (vma = mm->mmap; vma; vma = vma->vm_next) {
+	/*Xin: replace 
+		down_read(&mm->mmap_sem);
+		for (vma = mm->mmap; vma; vma = vma->vm_next) {
 		walk.vma = vma;
-		walk_page_vma(vma, &walk);
+		// Xin: replace walk_page_vma(vma, &walk);
+		walk_page_vma(vma, &walk_ops);
 	}
 	// up_read(&mm->mmap_sem);
+	*/
+	mmap_read_lock(mm);
+	VMA_ITERATOR(vmi, mm, 0);
+	for_each_vma(vmi, vma) {
+		walk.vma = vma;
+		walk_page_vma(vma, &walk_ops, req);
+	}
 	mmap_read_unlock(mm);
 
 	/* Notify the completion synchronously */
@@ -1089,7 +1107,8 @@ static remote_page_response_t *__fetch_page_from_origin(struct task_struct *tsk,
 static int __claim_remote_page(struct task_struct *tsk, struct mm_struct *mm, struct vm_area_struct *vma, unsigned long addr, unsigned long fault_flags, struct page *page)
 {
 	int peers;
-	unsigned int random = prandom_u32();
+	//Xin edited: unsigned int random = prandom_u32();
+	unsigned int random = get_random_u32();
 	struct wait_station *ws;
 	struct remote_context *rc = __get_mm_remote(mm);
 	remote_page_response_t *rp;
