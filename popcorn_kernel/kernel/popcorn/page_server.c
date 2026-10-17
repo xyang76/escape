@@ -4,7 +4,8 @@
  * Popcorn Linux page server implementation
  * This work was an extension of Marina Sadini MS Thesis, but totally revamped
  * for multi-threaded setup.
- *
+ * 
+ * @author Xincheng Yang, Illinois Tech 2026 (Update Linux 5 -> Linux 6)
  * @author Sang-Hoon Kim, SSRG Virginia Tech 2017
  */
 
@@ -672,7 +673,8 @@ static void process_remote_page_flush(struct work_struct *work)
 		goto out_put;
 	}
 
-	down_read(&mm->mmap_sem);
+	//Xin: replace down_read(&mm->mmap_sem);
+	mmap_read_lock(mm);
 	vma = find_vma(mm, addr);
 	BUG_ON(!vma || vma->vm_start > addr);
 
@@ -692,15 +694,18 @@ static void process_remote_page_flush(struct work_struct *work)
 
 	/* XXX Should update through clear_flush and set */
 	entry = pte_make_valid(*pte);
-
-	set_pte_at_notify(mm, addr, pte, entry);
+	
+	// Xin: set_pte_at_notify no longer exists in Linux6
+	//set_pte_at_notify(mm, addr, pte, entry);
+	set_pte_at(mm, addr, pte, entry);
 	update_mmu_cache(vma, addr, pte);
 	flush_tlb_page(vma, addr);
 
 	put_page(page);
 
 	pte_unmap_unlock(pte, ptl);
-	up_read(&mm->mmap_sem);
+	//up_read(&mm->mmap_sem);
+	mmap_read_unlock(mm);
 
 out_put:
 	put_task_remote(tsk);
@@ -788,12 +793,15 @@ int page_server_flush_remote_pages(struct remote_context *rc)
 
 	/* Send pages asynchronously */
 	ws = get_wait_station(current);
-	down_read(&mm->mmap_sem);
+	
+	//Xin: replace down_read(&mm->mmap_sem);
+	mmap_read_lock(mm);
 	for (vma = mm->mmap; vma; vma = vma->vm_next) {
 		walk.vma = vma;
 		walk_page_vma(vma, &walk);
 	}
-	up_read(&mm->mmap_sem);
+	// up_read(&mm->mmap_sem);
+	mmap_read_unlock(mm);
 
 	/* Notify the completion synchronously */
 	req->flags = FLUSH_FLAG_LAST;
@@ -835,7 +843,8 @@ static void __do_invalidate_page(struct task_struct *tsk, page_invalidate_reques
 	unsigned long addr = req->addr;
 	struct fault_handle *fh;
 
-	down_read(&mm->mmap_sem);
+	//down_read(&mm->mmap_sem);
+	mmap_read_lock(mm);
 	vma = find_vma(mm, addr);
 	if (!vma || vma->vm_start > addr) {
 		ret = VM_FAULT_SIGBUS;
@@ -857,14 +866,16 @@ static void __do_invalidate_page(struct task_struct *tsk, page_invalidate_reques
 	entry = ptep_clear_flush(vma, addr, pte);
 	entry = pte_make_invalid(entry);
 
-	set_pte_at_notify(mm, addr, pte, entry);
+	// set_pte_at_notify(mm, addr, pte, entry);
+	set_pte_at(mm, addr, pte, entry);
 	update_mmu_cache(vma, addr, pte);
 
 	__finish_invalidation(fh);
 	pte_unmap_unlock(pte, ptl);
 
 out:
-	up_read(&mm->mmap_sem);
+	// up_read(&mm->mmap_sem);
+	mmap_read_unlock(mm);
 	mmput(mm);
 }
 
@@ -980,7 +991,8 @@ int page_server_release_page_ownership(struct vm_area_struct *vma, unsigned long
 	pte_val = ptep_clear_flush(vma, addr, pte);
 	pte_val = pte_make_invalid(pte_val);
 
-	set_pte_at_notify(mm, addr, pte, pte_val);
+	//set_pte_at_notify(mm, addr, pte, pte_val);
+	set_pte_at(mm, addr, pte, pte_val);
 	update_mmu_cache(vma, addr, pte);
 	pte_unmap_unlock(pte, ptl);
 	return 1;
@@ -1213,15 +1225,17 @@ static void __make_pte_valid(struct mm_struct *mm,
 	entry = ptep_clear_flush(vma, addr, pte);
 	entry = pte_make_valid(entry);
 
+	// Xin: pte_mkwrite(entry) => pte_mkwrite(entry, vma)
 	if (fault_for_write(fault_flags)) {
-		entry = pte_mkwrite(entry);
+		entry = pte_mkwrite(entry, vma);
 		entry = pte_mkdirty(entry);
 	} else {
 		entry = pte_wrprotect(entry);
 	}
 	entry = pte_mkyoung(entry);
-
-	set_pte_at_notify(mm, addr, pte, entry);
+	
+	// set_pte_at_notify(mm, addr, pte, entry);
+	set_pte_at(mm, addr, pte, entry);
 	update_mmu_cache(vma, addr, pte);
 	// flush_tlb_page(vma, addr);
 
@@ -1281,8 +1295,9 @@ static int __handle_remotefault_at_remote(struct task_struct *tsk, struct mm_str
 	} else {
 		entry = pte_wrprotect(entry);
 	}
-
-	set_pte_at_notify(mm, addr, pte, entry);
+	
+	//set_pte_at_notify(mm, addr, pte, entry);
+	set_pte_at(mm, addr, pte, entry);
 	update_mmu_cache(vma, addr, pte);
 	pte_unmap_unlock(pte, ptl);
 	present = pte_is_present(*pte);
@@ -1357,7 +1372,8 @@ again:
 	 */
 	if (!fh) {
 		pte_unmap(pte);
-		up_read(&mm->mmap_sem); /* To match the sematic for VM_FAULT_RETRY */
+		// up_read(&mm->mmap_sem); /* To match the sematic for VM_FAULT_RETRY */
+		mmap_read_unlock(mm);
 		return VM_FAULT_RETRY;
 	}
 	page = get_normal_page(vma, addr, pte);
@@ -1397,7 +1413,8 @@ again:
 			entry = pte_wrprotect(entry);
 			set_page_owner(my_nid, mm, addr);
 		}
-		set_pte_at_notify(mm, addr, pte, entry);
+		//set_pte_at_notify(mm, addr, pte, entry);
+		set_pte_at(mm, addr, pte, entry);
 		update_mmu_cache(vma, addr, pte);
 
 		spin_unlock(ptl);
@@ -1461,8 +1478,8 @@ again:
 			req->remote_pid, req->addr,
 			fault_for_write(req->fault_flags) ? 'W' : 'R',
 			req->instr_addr, req->origin_pid, from_nid);
-
-	while (!down_read_trylock(&mm->mmap_sem)) {
+	// Xin: replaced while (!down_read_trylock(&mm->mmap_sem)) {
+	while (!mmap_read_trylock(mm)) {
 		if (!tsk->at_remote && down_read_retry++ > 4) {
 			res->result = VM_FAULT_RETRY;
 			goto out_up;
@@ -1488,7 +1505,8 @@ again:
 
 out_up:
 	if (res->result != VM_FAULT_RETRY) {
-		up_read(&mm->mmap_sem);
+		//up_read(&mm->mmap_sem);
+		mmap_read_unlock(mm);
 	}
 	mmput(mm);
 	put_task_struct(tsk);
@@ -1549,7 +1567,9 @@ int page_server_get_userpage(u32 __user *uaddr, struct fault_handle **handle, ch
 
 	mm = get_task_mm(current);
 retry:
-	down_read(&mm->mmap_sem);
+	
+	//down_read(&mm->mmap_sem);
+	mmap_read_lock(mm);
 	vma = find_vma(mm, addr);
 	if (!vma || vma->vm_start > addr) {
 		ret = -EINVAL;
@@ -1565,7 +1585,8 @@ retry:
 	fh = __start_fault_handling(current, addr, fault_flags, ptl, &leader);
 	if (!fh) {
 		pte_unmap(pte);
-		up_read(&mm->mmap_sem);
+		//up_read(&mm->mmap_sem);
+		mmap_read_unlock(mm);
 		io_schedule();
 		goto retry;
 	}
@@ -1588,7 +1609,8 @@ retry:
 
 out:
 	*handle = fh;
-	up_read(&mm->mmap_sem);
+	//up_read(&mm->mmap_sem);
+	mmap_read_unlock(mm);
 	mmput(mm);
 	return ret;
 }
@@ -1640,7 +1662,8 @@ static int __handle_localfault_at_remote(struct vm_fault *vmf)
 	fh = __start_fault_handling(current, addr, vmf->flags, ptl, &leader);
 	if (!fh) {
 		pte_unmap(vmf->pte);
-		up_read(&vmf->vma->vm_mm->mmap_sem);
+		//up_read(&vmf->vma->vm_mm->mmap_sem);
+		mmap_read_unlock(vmf->vma->vm_mm);
 		return VM_FAULT_RETRY;
 	}
 
@@ -1648,7 +1671,8 @@ static int __handle_localfault_at_remote(struct vm_fault *vmf)
 	if (!leader) {
 		pte_unmap(vmf->pte);
 		ret = fh->ret;
-		if (ret) up_read(&vmf->vma->vm_mm->mmap_sem);
+		//if (ret) up_read(&vmf->vma->vm_mm->mmap_sem);
+		if (ret) mmap_read_unlock(vmf->vma->vm_mm);
 		goto out_follower;
 	}
 
@@ -1679,7 +1703,8 @@ static int __handle_localfault_at_remote(struct vm_fault *vmf)
 			PGPRINTK("  [%d] failed 0x%x\n", current->pid, rp->result);
 		ret = rp->result;
 		pte_unmap(vmf->pte);
-		up_read(&vmf->vma->vm_mm->mmap_sem);
+		//up_read(&vmf->vma->vm_mm->mmap_sem);
+		mmap_read_unlock(vmf->vma->vm_mm);
 		goto out_free;
 	}
 
@@ -1693,8 +1718,9 @@ static int __handle_localfault_at_remote(struct vm_fault *vmf)
 
 		spin_lock(ptl);
 		entry = pte_make_valid(*vmf->pte);
+		// Xin: pte_mkwrite(entry) => pte_mkwrite(entry, vmf->vma)
 		if (fault_for_write(vmf->flags)) {
-			entry = pte_mkwrite(entry);
+			entry = pte_mkwrite(entry, vmf->vma);
 			entry = pte_mkdirty(entry);
 		} else {
 			entry = pte_wrprotect(entry);
@@ -1803,7 +1829,9 @@ static int __handle_localfault_at_origin(struct vm_fault *vmf)
 	fh = __start_fault_handling(current, addr, vmf->flags, ptl, &leader);
 	if (!fh) {
 		pte_unmap(vmf->pte);
-		up_read(&vmf->vma->vm_mm->mmap_sem);
+		//up_read(&vmf->vma->vm_mm->mmap_sem);
+		mmap_read_unlock(vmf->vma->vm_mm);
+
 		return VM_FAULT_RETRY;
 	}
 
@@ -1829,7 +1857,8 @@ static int __handle_localfault_at_origin(struct vm_fault *vmf)
 		__claim_local_page(current, addr, my_nid);
 
 		spin_lock(ptl);
-		vmf->orig_pte = pte_mkwrite(vmf->orig_pte);
+		// Xin : pte_mkwrite(vmf->orig_pte) => pte_mkwrite(vmf->orig_pte, vmf->vma)
+		vmf->orig_pte = pte_mkwrite(vmf->orig_pte, vmf->vma);
 		vmf->orig_pte = pte_mkdirty(vmf->orig_pte);
 		vmf->orig_pte = pte_mkyoung(vmf->orig_pte);
 
@@ -1872,7 +1901,8 @@ out_wakeup:
  *
  * Description:
  *	Handle PTE faults with Popcorn page replication protocol.
- *  down_read(&mm->mmap_sem) is already held when getting in.
+ *  Linux 5: down_read(&mm->mmap_sem) is already held when getting in.
+ *  Linux 6: replaced with mmap_read_lock(mm)
  *  DO NOT FORGET to unmap pte before returning non-VM_FAULT_CONTINUE.
  *
  * Input:

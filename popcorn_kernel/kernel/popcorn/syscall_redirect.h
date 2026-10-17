@@ -14,7 +14,6 @@
 #include <linux/smp.h>
 #include <linux/errno.h>
 #include <linux/ptrace.h>
-#include <linux/tracehook.h>
 #include <linux/audit.h>
 #include <linux/seccomp.h>
 #include <linux/signal.h>

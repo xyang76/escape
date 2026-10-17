@@ -21,15 +21,17 @@ EXPORT_SYMBOL(popcorn_wq);
 EXPORT_SYMBOL(popcorn_ordered_wq);
 
 extern int pcn_kmsg_init(void);
-/*
 extern int popcorn_nodes_init(void);
-extern int sched_server_init(void);
+extern int statistics_init(void);
+extern int page_server_init(void);
+/*
 extern int process_server_init(void);
 extern int vma_server_init(void);
-extern int page_server_init(void);
 extern int remote_info_init(void);
-extern int statistics_init(void);
+extern int sched_server_init(void);
 extern int syscall_server_init(void);
+
+
 */
  
 static int __init popcorn_init(void)
@@ -46,15 +48,15 @@ static int __init popcorn_init(void)
 
 	pcn_kmsg_init();
 
-    //popcorn_nodes_init();
+	popcorn_nodes_init();
 	//vma_server_init();
-    //process_server_init();
-    //page_server_init();
-    //sched_server_init();
+	//process_server_init();
+	page_server_init();
+	//sched_server_init();
 
 	//remote_info_init();
-    //statistics_init();
-    //syscall_server_init();
+	statistics_init();
+	//syscall_server_init();
 	return 0;
 }
 late_initcall(popcorn_init);

@@ -104,7 +104,10 @@ int handle_signal_remotes(struct pcn_kmsg_message *msg)
        printk("%s: received the signal %d for task %d (%d) \n\n",
 	      __FUNCTION__, recv->sig, recv->remote_pid,
 	      current->pid);
-       force_sig(recv->sig, tgt_tsk);
+       
+       //TODO(Xin OCT4,2026) modified force_sig to send_sig, not sure at this moment
+       //force_sig(recv->sig, tgt_tsk);
+       send_sig(recv->sig, tgt_tsk, 0);
        tgt_tsk->remote->stop_remote_worker = false;
        return 0;
 }

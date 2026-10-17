@@ -5,6 +5,7 @@
  * This work was an extension of David Katz MS Thesis, but totally rewritten
  * by Sang-Hoon to support multithread environment.
  *
+ * @author Xincheng Yang, Illinois Tech 2026
  * @author Sang-Hoon Kim, SSRG Virginia Tech 2017
  * @author Antonio Barbalace, SSRG Virginia Tech 2014-2016
  * @author Vincent Legout, Sharat Kumar Bath, Ajithchandra Saya, SSRG Virginia Tech 2014-2015
@@ -76,7 +77,6 @@ static struct remote_context *__lookup_remote_contexts_in(int nid, int tgid)
 	__unlock_remote_contexts(INDEX_INBOUND)
 #define __unlock_remote_contexts_out(nid) \
 	__unlock_remote_contexts(INDEX_OUTBOUND)
-
 #define __remote_contexts_in() remote_contexts[INDEX_INBOUND]
 #define __remote_contexts_out() remote_contexts[INDEX_OUTBOUND]
 
@@ -382,7 +382,7 @@ static void process_remote_task_exit(remote_task_exit_t *req)
 	pcn_kmsg_done(req);
 
 	if (exit_code & CSIGNAL) {
-		force_sig(exit_code & CSIGNAL, tsk);
+		send_sig(exit_code & CSIGNAL, tsk, 0);
 	}
 	do_exit(exit_code);
 }
@@ -538,7 +538,8 @@ static int remote_thread_main(void *_args)
 	current->origin_pid = req->origin_pid;
 	current->remote = get_task_remote(current);
 
-	set_fs(USER_DS);
+	//TODO: need find out how to treat it in Linux6
+	//set_fs(USER_DS);
 
 	/* Inject thread info here */
 	restore_thread_info(&req->arch, true);
@@ -574,7 +575,7 @@ static int __fork_remote_thread(clone_request_t *req)
 	params->req = req;
 
 	/* The loop deals with signals between concurrent migration */
-	while (kernel_thread(remote_thread_main, params,
+	while (kernel_thread(remote_thread_main, params, "popremote", 
 					CLONE_THREAD | CLONE_SIGHAND | SIGCHLD) < 0) {
 		schedule();
 	}
@@ -619,8 +620,9 @@ static int __construct_mm(clone_request_t *req, struct remote_context *rc)
 	mm->start_data = req->start_data;
 	mm->end_data = req->end_data;
 	mm->def_flags = req->def_flags;
-
-	use_mm(mm);
+   
+   	//Xin: Update use_mm to kthread_use_mm  
+	kthread_use_mm(mm);
 
 	rc->mm = mm;  /* No need to increase mm_users due to mm_alloc() */
 	mm->remote = rc;
@@ -638,7 +640,7 @@ static void __terminate_remote_threads(struct remote_context *rc)
 	rcu_read_lock();
 	for_each_thread(current, tsk) {
 		if (tsk->is_worker) continue;
-		force_sig(current->exit_code, tsk);
+		send_sig(current->exit_code, tsk, 0);
 	}
 	rcu_read_unlock();
 }
@@ -883,8 +885,11 @@ static void __process_remote_works(void)
                 {
                         unsigned long flags;
                         spin_lock_irqsave(&current->sighand->siglock, flags);
+                        /* Xin: Linux 6 no longer use SIGNAL_GROUP_COREDUMP
                         if (current->signal->flags &
                                         (SIGNAL_GROUP_COREDUMP| SIGNAL_GROUP_EXIT))
+                        */
+                        if (current->signal->flags & SIGNAL_GROUP_EXIT)
                         {
                                 remote_signalling(SIGINT , current , 1);
                                 run = false;
