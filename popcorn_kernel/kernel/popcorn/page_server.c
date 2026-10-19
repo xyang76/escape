@@ -1706,10 +1706,17 @@ static int __handle_localfault_at_remote(struct vm_fault *vmf)
 	if (pte_none(*vmf->pte) || !page) {
 		page = alloc_page_vma(GFP_HIGHUSER_MOVABLE, vmf->vma, addr);
 		BUG_ON(!page);
-
+        
+        /*
 		if (mem_cgroup_try_charge(page, vmf->vma->vm_mm, GFP_KERNEL, &memcg, false)) {
 			BUG();
 		}
+         */
+        if (mem_cgroup_charge(page_folio(page),
+                              vmf->vma->vm_mm, GFP_KERNEL)) {
+            PGPRINTK("TODO: Xin with try charge edition");
+            BUG();
+        }
 		populated = true;
 	}
 
@@ -1752,7 +1759,8 @@ static int __handle_localfault_at_remote(struct vm_fault *vmf)
 	} else {
 		spin_lock(ptl);
 		if (populated) {
-			alloc_set_pte(vmf, memcg, page);
+            PGPRINTK("TODO: Xin with set pte");
+			//alloc_set_pte(vmf, memcg, page);
 		} else {
 			__make_pte_valid(vmf->vma->vm_mm, vmf->vma, addr, vmf->flags, vmf->pte);
 		}
