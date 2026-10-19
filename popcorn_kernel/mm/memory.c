@@ -90,6 +90,12 @@
 #include "internal.h"
 #include "swap.h"
 
+#ifdef CONFIG_POPCORN
+#include <linux/delay.h>
+#include <popcorn/page_server.h>
+#include <popcorn/process_server.h>
+#endif
+
 #if defined(LAST_CPUPID_NOT_IN_PAGE_FLAGS) && !defined(CONFIG_COMPILE_TEST)
 #warning Unfortunate NUMA and NUMA Balancing config, growing page-frame for last_cpupid.
 #endif
@@ -1820,6 +1826,10 @@ static inline int do_zap_pte_range(struct mmu_gather *tlb,
 		pte += nr;
 		addr += nr * PAGE_SIZE;
 	}
+    
+#ifdef CONFIG_POPCORN
+    page_server_zap_pte(vma, addr, pte, &ptent);
+#endif
 
 	if (pte_present(ptent))
 		nr += zap_present_ptes(tlb, vma, pte, ptent, max_nr, addr,
@@ -1865,7 +1875,6 @@ retry:
 			direct_reclaim = false;
 			break;
 		}
-
 		nr = do_zap_pte_range(tlb, vma, pte, addr, end, details, rss,
 				      &force_flush, &force_break, &any_skipped);
 		if (any_skipped)
@@ -2835,10 +2844,12 @@ static int remap_pte_range(struct mm_struct *mm, pmd_t *pmd,
 	arch_enter_lazy_mmu_mode();
 	do {
 		BUG_ON(!pte_none(ptep_get(pte)));
+#ifndef CONFIG_POPCORN
 		if (!pfn_modify_allowed(pfn, prot)) {
 			err = -EACCES;
 			break;
 		}
+#endif
 		set_pte_at(mm, addr, pte, pte_mkspecial(pfn_pte(pfn, prot)));
 		pfn++;
 	} while (pte++, addr += PAGE_SIZE, addr != end);
@@ -6507,6 +6518,10 @@ vm_fault_t handle_mm_fault(struct vm_area_struct *vma, unsigned long address,
 		ret = VM_FAULT_SIGSEGV;
 		goto out;
 	}
+    
+#ifdef CONFIG_POPCORN_STAT_PGFAULTS
+    page_server_start_mm_fault(address);
+#endif
 
 	is_droppable = !!(vma->vm_flags & VM_DROPPABLE);
 
@@ -6550,6 +6565,9 @@ vm_fault_t handle_mm_fault(struct vm_area_struct *vma, unsigned long address,
 out:
 	mm_account_fault(mm, regs, address, flags, ret);
 
+#ifdef CONFIG_POPCORN_STAT_PGFAULTS
+    ret = page_server_end_mm_fault(ret);
+#endif
 	return ret;
 }
 EXPORT_SYMBOL_GPL(handle_mm_fault);
@@ -7356,3 +7374,171 @@ void vma_pgtable_walk_end(struct vm_area_struct *vma)
 	if (is_vm_hugetlb_page(vma))
 		hugetlb_vma_unlock_read(vma);
 }
+
+
+#ifdef CONFIG_POPCORN
+struct page *get_normal_page(struct vm_area_struct *vma, unsigned long addr, pte_t *pte)
+{
+    struct mm_struct *mm = vma->vm_mm;
+    struct mem_cgroup *memcg;
+    struct page *page;
+    pte_t entry = *pte;
+
+    if ((page = vm_normal_page(vma, addr, entry))) return page;
+
+    BUG_ON(!is_zero_pfn(pte_pfn(entry)) && "Cannot handle this special page");
+
+    page = alloc_zeroed_user_highpage_movable(vma, addr);
+    if (!page) return NULL;
+
+    if (mem_cgroup_try_charge(page, mm, GFP_KERNEL, &memcg, false)) {
+        put_page(page);
+        return NULL;
+    }
+
+    __SetPageUptodate(page);
+
+    entry = mk_pte(page, vma->vm_page_prot);
+    if (vma->vm_flags & VM_WRITE)
+        entry = pte_mkwrite(pte_mkdirty(entry));
+
+    inc_mm_counter_fast(mm, MM_ANONPAGES);
+    page_add_new_anon_rmap(page, vma, addr, false);
+    mem_cgroup_commit_charge(page, memcg, false, false);
+    lru_cache_add_active_or_unevictable(page, vma);
+
+    set_pte_at_notify(mm, addr, pte, entry);
+    update_mmu_cache(vma, addr, pte);
+    flush_tlb_page(vma, addr);
+
+    return page;
+}
+
+int handle_pte_fault_origin(struct mm_struct *mm, struct vm_area_struct *vma,
+                unsigned long address,
+                pte_t *pte, pmd_t *pmd, unsigned int flags)
+{
+    struct mem_cgroup *memcg;
+    struct page *page;
+    spinlock_t *ptl;
+    pte_t entry = *pte;
+    struct vm_fault vmf = {
+        .vma = vma,
+        .address = address & PAGE_MASK,
+        .flags = flags,
+        .pgoff = linear_page_index(vma, address),
+        .gfp_mask = __get_fault_gfp_mask(vma),
+        .pmd = pmd,
+        .orig_pte = pte,
+    };
+
+    pgd_t *pgd;
+    p4d_t *p4d;
+
+    pgd = pgd_offset(mm, address);
+    if (!pgd) return NULL;
+
+    p4d = p4d_alloc(mm, pgd, address);
+    if (!p4d) return NULL;
+
+    vmf.pud = pud_alloc(mm, p4d, address);
+
+    barrier();
+
+    if (!vma_is_anonymous(vma)) // TODO this is broken, vmd is not populated. And cast probably breaks things
+      return do_fault(&vmf);
+
+    /**
+     * Following is for anonymous page. Almost same to do_anonymos_page
+     * except it allocates page upon read
+     */
+    pte_unmap(pte);
+
+    if (vma->vm_flags & VM_SHARED) return VM_FAULT_SIGBUS;
+
+    if (unlikely(anon_vma_prepare(vma)))
+        return VM_FAULT_OOM;
+
+    page = alloc_zeroed_user_highpage_movable(vma, address);
+    if (!page)
+        return VM_FAULT_OOM;
+
+    if (mem_cgroup_try_charge(page, mm, GFP_KERNEL, &memcg, false)) {
+        put_page(page);
+        return VM_FAULT_OOM;
+    }
+
+    __SetPageUptodate(page);
+
+    entry = mk_pte(page, vma->vm_page_prot);
+    if (vma->vm_flags & VM_WRITE)
+        entry = pte_mkwrite(pte_mkdirty(entry));
+
+    pte = pte_offset_map_lock(mm, pmd, address, &ptl);
+    if (!pte_none(*pte)) {
+        /* Somebody already attached a page */
+        mem_cgroup_cancel_charge(page, memcg, false);
+        put_page(page);
+    } else {
+        inc_mm_counter_fast(mm, MM_ANONPAGES);
+        page_add_new_anon_rmap(page, vma, address, false);
+        mem_cgroup_commit_charge(page, memcg, false, false);
+        lru_cache_add_active_or_unevictable(page, vma);
+
+        set_pte_at(mm, address, pte, entry);
+        /* No need to invalidate - it was non-present before */
+        update_mmu_cache(vma, address, pte);
+    }
+    pte_unmap_unlock(pte, ptl);
+    return 0;
+}
+
+int cow_file_at_origin(struct mm_struct *mm, struct vm_area_struct *vma, unsigned long addr, pte_t *pte)
+{
+    struct page *new_page, *old_page;
+    struct mem_cgroup *memcg;
+    pte_t entry;
+
+    /**
+     * Following is very similar to do_wp_page() and wp_page_copy()
+     */
+    if (anon_vma_prepare(vma)) return VM_FAULT_OOM;
+
+    new_page = alloc_page_vma(GFP_HIGHUSER_MOVABLE, vma, addr);
+    if (!new_page) return VM_FAULT_OOM;
+
+    if (mem_cgroup_try_charge(new_page, mm, GFP_KERNEL, &memcg, false)) {
+        put_page(new_page);
+        return VM_FAULT_OOM;
+    }
+
+    old_page = vm_normal_page(vma, addr, *pte);
+    BUG_ON(!old_page);
+    BUG_ON(PageAnon(old_page));
+
+    get_page(old_page);
+
+    copy_user_highpage(new_page, old_page, addr, vma);
+    __SetPageUptodate(new_page);
+
+    dec_mm_counter_fast(mm, MM_FILEPAGES);
+    inc_mm_counter_fast(mm, MM_ANONPAGES);
+
+    flush_cache_page(vma, addr, pte_pfn(*pte));
+    entry = mk_pte(new_page, vma->vm_page_prot);
+    entry = maybe_mkwrite(pte_mkdirty(entry), vma);
+
+    ptep_clear_flush_notify(vma, addr, pte);
+    page_add_new_anon_rmap(new_page, vma, addr, false);
+    mem_cgroup_commit_charge(new_page, memcg, false, false);
+    lru_cache_add_active_or_unevictable(new_page, vma);
+
+    set_pte_at_notify(mm, addr, pte, entry);
+    update_mmu_cache(vma, addr, pte);
+
+    page_remove_rmap(old_page, false);
+    put_page(old_page);
+
+    return 0;
+}
+#endif
