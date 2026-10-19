@@ -55,3 +55,31 @@ Status:
   - Description: edited force_sig to send_sig, since force_sig no longer supports task_ptr in Linux 6.
 * Syscall_redirect:
   - Description: migrating system calls.
+
+# 05. PageSever / Syscall / ProcessServer:  IN PROGRESS (Oct 19, 2026)
+
+* Popcorn process_server module:
+  - Description: edited kernel_thread name to “popremote“
+  - Updated: use_mm/force_sig
+  - TODO: set_fs(USER_DS) need work out with Linux6
+
+* Popcorn syscall module: 
+  - Description: edited force_sig to send_sig, since force_sig no longer supports task_ptr in Linux 6.
+* Syscall_redirect:
+  - Description: migrating system calls.
+
+
+* Popcorn page_server module:
+#kernel/popcorn/pageserver.c
+  - Description: mm->mmap_sem is no longer in use.
+  - Replace: down_read(&mm->mmap_sem) => mmap_read_lock(mm)
+	up_read(&mm->mmap_sem) =>  mmap_read_unlock(mm)
+	down_read_trylock(&mm->mmap_sem) => mmap_read_trylock(mm)
+	set_pte_at_notify => set_pte_at
+	pte_mkwrite(pte) => pte_mkwrite(pte, vma)
+  	mm-mmap iteration => vma_interation instead
+  - Further Edition: alloc_set_pte() and 
+#mm/memory.c	
+ – page_server_zap_pte moved to do_zap_pte_range function to keep same functionality
+ – add ifndef wrap for deleted code in remap_pte_range
+
